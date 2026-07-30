@@ -7,7 +7,6 @@ export async function loadFavorites(familyId) {
     .from("shopping_favorites")
     .select("*")
     .eq("family_id", familyId)
-    .order("category")
     .order("sort_order")
     .order("item_text");
   if (error) throw error;
@@ -19,9 +18,9 @@ export async function ensureDefaultFavorites() {
   if (!family || favorites.length > 0) return;
 
   const defaults = [
-    { family_id: family.id, item_text: "Äpfel", category: "Obst", sort_order: 0 },
-    { family_id: family.id, item_text: "Bananen", category: "Obst", sort_order: 1 },
-    { family_id: family.id, item_text: "Brot", category: "Backwaren", sort_order: 2 }
+    { family_id: family.id, item_text: "Äpfel", sort_order: 0 },
+    { family_id: family.id, item_text: "Bananen", sort_order: 1 },
+    { family_id: family.id, item_text: "Brot", sort_order: 2 }
   ];
 
   const { error } = await supabase.from("shopping_favorites").insert(defaults);
@@ -29,16 +28,14 @@ export async function ensureDefaultFavorites() {
   await loadFavorites(family.id);
 }
 
-export async function createFavorite(itemText, category = "Sonstiges") {
+export async function createFavorite(itemText) {
   const { family } = getState();
   const text = itemText.trim();
   if (!family || !text) return;
 
   const { error } = await supabase.from("shopping_favorites").insert({
     family_id: family.id,
-    item_text: text,
-    category: category.trim() || "Sonstiges",
-    repeat_weekday: null
+    item_text: text
   });
   if (error) throw error;
   await loadFavorites(family.id);
