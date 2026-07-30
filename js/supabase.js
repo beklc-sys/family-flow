@@ -24,9 +24,18 @@ export async function ensureAnonymousSession() {
 }
 
 export async function getCurrentFamily() {
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError) throw userError;
+  if (!user) return null;
+
   const { data: memberships, error: membershipError } = await supabase
     .from("family_users")
-    .select("family_id, display_name, role")
+    .select("family_id, user_id, display_name, role")
+    .eq("user_id", user.id)
     .limit(1);
 
   if (membershipError) throw membershipError;
@@ -44,9 +53,6 @@ export async function getCurrentFamily() {
 
   const family = families?.[0] || null;
 
-  // Direkt nach dem Beitritt kann die Mitgliedschaft bereits sichtbar sein,
-  // während die Familienzeile über RLS noch einen Moment benötigt.
-  // Die Einkaufsliste kann trotzdem sicher über die family_id geladen werden.
   if (!family) {
     return {
       id: membership.family_id,
