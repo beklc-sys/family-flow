@@ -45,7 +45,8 @@ button:disabled { cursor: wait; opacity: 0.65; }
 .date-card,
 .copy-row,
 .dialog-actions,
-.section-actions {
+.section-actions,
+.overview-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -126,6 +127,40 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(103, 80, 
 .status-pill.online { color: var(--success); }
 .status-pill.offline { color: #8a5200; background: #fff3d6; }
 .status-pill.error { color: var(--danger); background: #ffedea; }
+
+.overview-card {
+  scroll-margin-top: 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(238,232,255,.76));
+}
+.overview-heading h2 { margin-bottom: 0; }
+.date-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 9px;
+  margin-top: 15px;
+}
+.date-overview-button {
+  display: grid;
+  gap: 3px;
+  min-height: 66px;
+  padding: 10px 12px;
+  border: 1px solid rgba(103,80,164,.18);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--text);
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 4px 13px rgba(47,36,63,.05);
+}
+.date-overview-button.selected {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px rgba(103,80,164,.1);
+}
+.date-overview-label { font-weight: 900; }
+.date-overview-count { color: var(--muted); font-size: .79rem; font-weight: 750; }
+.date-overview-button.selected .date-overview-count { color: var(--primary-dark); }
+.overview-empty { margin: 14px 0 0; color: var(--muted); font-size: .9rem; }
 
 .date-card { align-items: flex-end; }
 .date-picker-label { display: grid; gap: 5px; min-width: 150px; }
@@ -237,4 +272,5 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(103, 80, 
   .copy-row { align-items: stretch; flex-direction: column; }
   .section-heading { align-items: flex-start; }
   .section-actions { align-items: flex-end; flex-direction: column-reverse; gap: 5px; }
+  .date-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
