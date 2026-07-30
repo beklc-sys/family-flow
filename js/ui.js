@@ -16,6 +16,10 @@ export const elements = {
   listDate: $("#list-date"),
   addForm: $("#add-item-form"),
   newItemText: $("#new-item-text"),
+  shoppingOverview: $("#shopping-overview"),
+  shoppingDateOverview: $("#shopping-date-overview"),
+  overviewCount: $("#overview-count"),
+  emptyOverview: $("#empty-overview"),
   openItems: $("#open-items"),
   doneItems: $("#done-items"),
   openCount: $("#open-count"),
@@ -47,7 +51,10 @@ function render(state, handlers) {
   elements.listDate.value = state.selectedDate;
 
   renderConnectionStatus(state);
-  if (state.family) renderItems(handlers);
+  if (state.family) {
+    renderShoppingOverview(state);
+    renderItems(handlers);
+  }
 }
 
 function renderConnectionStatus(state) {
@@ -66,6 +73,65 @@ function renderConnectionStatus(state) {
     status.textContent = "Live verbunden";
     status.classList.add("online");
   }
+}
+
+function renderShoppingOverview(state) {
+  const openByDate = new Map();
+
+  for (const item of state.items) {
+    if (item.is_done || !item.shopping_date) continue;
+    openByDate.set(item.shopping_date, (openByDate.get(item.shopping_date) || 0) + 1);
+  }
+
+  const dates = [...openByDate.entries()].sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate));
+  const buttons = dates.map(([date, count]) => createDateOverviewButton(date, count, state.selectedDate));
+
+  elements.shoppingDateOverview.replaceChildren(...buttons);
+  elements.overviewCount.textContent = String(dates.length);
+  elements.shoppingDateOverview.classList.toggle("hidden", dates.length === 0);
+  elements.emptyOverview.classList.toggle("hidden", dates.length > 0);
+}
+
+function createDateOverviewButton(date, count, selectedDate) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `date-overview-button${date === selectedDate ? " selected" : ""}`;
+  button.setAttribute("aria-label", `${formatOverviewDate(date)}, ${count} offene ${count === 1 ? "Sache" : "Sachen"}`);
+
+  const dateLabel = document.createElement("span");
+  dateLabel.className = "date-overview-label";
+  dateLabel.textContent = formatOverviewDate(date);
+
+  const countLabel = document.createElement("span");
+  countLabel.className = "date-overview-count";
+  countLabel.textContent = `${count} offen`;
+
+  button.append(dateLabel, countLabel);
+  button.addEventListener("click", () => {
+    setSelectedDate(date);
+    elements.shoppingOverview.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  return button;
+}
+
+function formatOverviewDate(date) {
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (parsed.toDateString() === today.toDateString()) return "Heute";
+  if (parsed.toDateString() === tomorrow.toDateString()) return "Morgen";
+
+  return new Intl.DateTimeFormat("de-DE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit"
+  }).format(parsed);
 }
 
 function renderItems(handlers) {
