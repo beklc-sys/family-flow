@@ -89,11 +89,10 @@ function bindEvents() {
   elements.favoriteForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = elements.favoriteText.value.trim();
-    const category = elements.favoriteCategory.value.trim() || "Sonstiges";
     if (!text) return;
 
     await runAction(async () => {
-      await createFavorite(text, category);
+      await createFavorite(text);
       resetFavoriteForm();
       showToast("Favorit gespeichert");
     });
