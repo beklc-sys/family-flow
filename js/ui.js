@@ -19,7 +19,7 @@ function render(state) {
   elements.shoppingView.classList.toggle("hidden", state.loading || !state.family);
   elements.shareButton.classList.toggle("hidden", !state.family);
   elements.listDate.value = state.selectedDate;
-  elements.dateDisplayButton.textContent = `📅 ${formatFullDate(state.selectedDate)}`;
+  elements.dateDisplayButton.textContent = formatFullDate(state.selectedDate);
   renderConnectionStatus(state);
   if (state.family) {
     renderShoppingOverview(state);
@@ -155,7 +155,7 @@ export function showShareDialog() { const family = getState().family; if (!famil
 export async function copyInviteLink() { await navigator.clipboard.writeText(elements.inviteLink.value); showToast("Einladungslink kopiert"); }
 export function setSelectedDate(date) { setState({ selectedDate: date }); }
 
-function formatFullDate(date) { const parsed = new Date(`${date}T12:00:00`); return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(parsed); }
+function formatFullDate(date) { const parsed = new Date(`${date}T12:00:00`); return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(parsed); }
 function formatOverviewDate(date) { const parsed = new Date(`${date}T12:00:00`); const today = new Date(); today.setHours(12,0,0,0); const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1); if (parsed.toDateString() === today.toDateString()) return "Heute"; if (parsed.toDateString() === tomorrow.toDateString()) return "Morgen"; return new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }).format(parsed); }
 let toastTimer; export function showToast(message) { clearTimeout(toastTimer); elements.toast.textContent = message; elements.toast.classList.remove("hidden"); toastTimer = setTimeout(() => elements.toast.classList.add("hidden"), 2800); }
 export function friendlyError(error) { return error?.message || String(error || "Unbekannter Fehler"); }
