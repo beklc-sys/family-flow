@@ -62,27 +62,30 @@ function renderFavorites(state) {
     .filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query))
     .sort((a, b) => a.item_text.localeCompare(b.item_text, "de", { sensitivity: "base" }));
 
-  const rows = favorites.map((favorite) => {
-    const row = document.createElement("div");
-    row.className = "favorite-select-row";
+  const tiles = favorites.map((favorite) => {
+    const tile = document.createElement("div");
+    tile.className = "favorite-tile";
 
-    const choice = document.createElement("label");
-    choice.className = "favorite-choice";
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = `favorite-select-button${selectedFavoriteIds.has(favorite.id) ? " selected" : ""}`;
+    select.setAttribute("aria-pressed", selectedFavoriteIds.has(favorite.id) ? "true" : "false");
+    select.setAttribute("aria-label", `${favorite.item_text} auswählen`);
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = selectedFavoriteIds.has(favorite.id);
-    checkbox.setAttribute("aria-label", `${favorite.item_text} auswählen`);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) selectedFavoriteIds.add(favorite.id);
-      else selectedFavoriteIds.delete(favorite.id);
-      updateSelectedButton();
-    });
+    const check = document.createElement("span");
+    check.className = "favorite-check";
+    check.textContent = selectedFavoriteIds.has(favorite.id) ? "✓" : "";
 
     const name = document.createElement("span");
     name.className = "favorite-select-name";
     name.textContent = favorite.item_text;
-    choice.append(checkbox, name);
+
+    select.append(check, name);
+    select.addEventListener("click", () => {
+      if (selectedFavoriteIds.has(favorite.id)) selectedFavoriteIds.delete(favorite.id);
+      else selectedFavoriteIds.add(favorite.id);
+      setState({ favorites: [...getState().favorites] });
+    });
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -96,11 +99,11 @@ function renderFavorites(state) {
       currentHandlers.onDeleteFavorite?.(favorite);
     });
 
-    row.append(choice, remove);
-    return row;
+    tile.append(select, remove);
+    return tile;
   });
 
-  elements.favoriteSelectionList.replaceChildren(...rows);
+  elements.favoriteSelectionList.replaceChildren(...tiles);
   elements.emptyFavorites.classList.toggle("hidden", state.favorites.length > 0);
   updateSelectedButton();
 }
