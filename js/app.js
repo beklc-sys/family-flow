@@ -41,6 +41,7 @@ async function init() {
   bindEvents();
   startRendering(handlers);
   prepareInviteJoin(getInviteTokenFromUrl());
+  registerServiceWorker();
 
   try {
     await ensureAnonymousSession();
@@ -55,8 +56,6 @@ async function init() {
   } catch (error) {
     setState({ loading: false, error: friendlyError(error) });
   }
-
-  registerServiceWorker();
 }
 
 function bindEvents() {
