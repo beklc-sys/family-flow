@@ -1,6 +1,6 @@
 import { createFamily, ensureAnonymousSession, getCurrentFamily, joinFamily, subscribeToFavorites, subscribeToShoppingItems, unsubscribe } from "./supabase.js";
 import { addShoppingItem, deleteShoppingItem, flushPendingOperations, loadShoppingItems, updateShoppingItem } from "./shopping.js";
-import { addFavoriteToShoppingList, createFavorite, deleteFavorite, ensureDefaultFavorites, loadFavorites } from "./favorites.js";
+import { addFavoriteToShoppingList, createFavorite, deleteFavorite, loadFavorites } from "./favorites.js";
 import { getState, removeFavoriteFromStore, removeItemFromStore, setState, upsertFavorite, upsertItem } from "./store.js";
 import { clearSelectedFavorites, closeEditDialog, closeFavoritesDialog, copyInviteLink, elements, friendlyError, getInviteTokenFromUrl, getSelectedFavorites, openFavoritesDialog, prepareInviteJoin, resetFavoriteForm, setSelectedDate, showShareDialog, showToast, startRendering } from "./ui.js";
 
@@ -150,7 +150,6 @@ async function synchronizeAfterReconnect() {
   if (synchronized) {
     await loadShoppingItems(family.id);
     await loadFavorites(family.id);
-    await ensureDefaultFavorites();
   }
 }
 
@@ -181,7 +180,6 @@ async function enterFamily(family) {
     const synchronized = await flushPendingOperations();
     if (synchronized) await loadShoppingItems(family.id);
     await loadFavorites(family.id);
-    await ensureDefaultFavorites();
   }
 
   await unsubscribe(realtimeChannel);
