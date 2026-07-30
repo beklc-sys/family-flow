@@ -123,6 +123,33 @@ function bindEvents() {
   elements.shareButton.addEventListener("click", showShareDialog);
   elements.copyInviteButton.addEventListener("click", copyInviteLink);
 
+  elements.deleteDoneButton.addEventListener("click", async () => {
+    const { items, selectedDate } = getState();
+    const completedItems = items.filter(
+      (item) => item.shopping_date === selectedDate && item.is_done
+    );
+
+    if (!completedItems.length) return;
+
+    const countLabel = completedItems.length === 1 ? "den erledigten Eintrag" : `alle ${completedItems.length} erledigten Einträge`;
+    if (!window.confirm(`${countLabel} für dieses Datum wirklich löschen?`)) return;
+
+    elements.deleteDoneButton.disabled = true;
+    elements.deleteDoneButton.textContent = "Wird gelöscht …";
+
+    try {
+      await runAction(async () => {
+        for (const item of completedItems) {
+          await deleteShoppingItem(item.id);
+        }
+        showToast(completedItems.length === 1 ? "Erledigter Eintrag gelöscht" : `${completedItems.length} erledigte Einträge gelöscht`);
+      });
+    } finally {
+      elements.deleteDoneButton.disabled = false;
+      elements.deleteDoneButton.textContent = "Erledigte löschen";
+    }
+  });
+
   elements.editForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await runAction(async () => {
