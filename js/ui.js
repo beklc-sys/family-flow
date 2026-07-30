@@ -4,7 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const selectedFavoriteIds = new Set();
 
 export const elements = {
-  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), openFavoritesButton: $("#open-favorites-button"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), favoriteSearch: $("#favorite-search"), favoriteSelectionList: $("#favorite-selection-list"), emptyFavorites: $("#empty-favorites"), addSelectedFavoritesButton: $("#add-selected-favorites-button"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteText: $("#favorite-text"), favoriteCategory: $("#favorite-category"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
+  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), openFavoritesButton: $("#open-favorites-button"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), favoriteSearch: $("#favorite-search"), favoriteSelectionList: $("#favorite-selection-list"), emptyFavorites: $("#empty-favorites"), addSelectedFavoritesButton: $("#add-selected-favorites-button"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteText: $("#favorite-text"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
 };
 
 let currentHandlers = {};
@@ -58,7 +58,7 @@ function createDateButton(date, count, selectedDate) {
 
 function renderFavorites(state) {
   const query = elements.favoriteSearch.value.trim().toLowerCase();
-  const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query) || (favorite.category || "").toLowerCase().includes(query));
+  const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query));
 
   const rows = favorites.map((favorite) => {
     const label = document.createElement("label");
@@ -78,13 +78,6 @@ function renderFavorites(state) {
     name.className = "favorite-select-name";
     name.textContent = favorite.item_text;
 
-    const category = document.createElement("small");
-    category.textContent = favorite.category || "Sonstiges";
-
-    const text = document.createElement("span");
-    text.className = "favorite-select-text";
-    text.append(name, category);
-
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "favorite-delete-mini";
@@ -96,7 +89,7 @@ function renderFavorites(state) {
       currentHandlers.onDeleteFavorite?.(favorite);
     });
 
-    label.append(checkbox, text, remove);
+    label.append(checkbox, name, remove);
     return label;
   });
 
@@ -144,7 +137,7 @@ function openEditDialog(item) { elements.editItemId.value = item.id; elements.ed
 export function closeEditDialog() { elements.editDialog.close(); }
 export function openFavoritesDialog() { selectedFavoriteIds.clear(); elements.favoriteSearch.value = ""; resetFavoriteForm(); elements.favoritesDialog.showModal(); setState({ favorites: [...getState().favorites] }); }
 export function closeFavoritesDialog() { elements.favoritesDialog.close(); }
-export function resetFavoriteForm() { elements.favoriteText.value = ""; elements.favoriteCategory.value = "Sonstiges"; }
+export function resetFavoriteForm() { elements.favoriteText.value = ""; }
 
 export function getInviteTokenFromUrl() { return new URL(location.href).searchParams.get("invite") || ""; }
 export function prepareInviteJoin(token) { if (token) elements.inviteToken.value = token; }
