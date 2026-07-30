@@ -1,8 +1,10 @@
 import { getState, itemsForSelectedDate, setState, subscribe } from "./store.js";
 
 const $ = (selector) => document.querySelector(selector);
+const selectedFavoriteIds = new Set();
+
 export const elements = {
-  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), openFavoritesButton: $("#open-favorites-button"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), favoriteSearch: $("#favorite-search"), favoriteChips: $("#favorite-chips"), emptyFavorites: $("#empty-favorites"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteId: $("#favorite-id"), favoriteText: $("#favorite-text"), favoriteCategory: $("#favorite-category"), favoriteRepeat: $("#favorite-repeat"), favoriteManagerList: $("#favorite-manager-list"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
+  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), openFavoritesButton: $("#open-favorites-button"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), favoriteSearch: $("#favorite-search"), favoriteSelectionList: $("#favorite-selection-list"), emptyFavorites: $("#empty-favorites"), addSelectedFavoritesButton: $("#add-selected-favorites-button"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteText: $("#favorite-text"), favoriteCategory: $("#favorite-category"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
 };
 
 let currentHandlers = {};
@@ -57,30 +59,69 @@ function createDateButton(date, count, selectedDate) {
 function renderFavorites(state) {
   const query = elements.favoriteSearch.value.trim().toLowerCase();
   const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query) || (favorite.category || "").toLowerCase().includes(query));
-  const grouped = new Map();
-  favorites.forEach((favorite) => { const category = favorite.category || "Sonstiges"; if (!grouped.has(category)) grouped.set(category, []); grouped.get(category).push(favorite); });
-  const nodes = [];
-  for (const [category, entries] of [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b, "de"))) {
-    const group = document.createElement("div"); group.className = "favorite-group";
-    const title = document.createElement("p"); title.className = "favorite-category-title"; title.textContent = category;
-    const chips = document.createElement("div"); chips.className = "favorite-chip-row";
-    entries.forEach((favorite) => { const button = document.createElement("button"); button.type = "button"; button.className = "favorite-chip"; button.textContent = favorite.item_text; button.addEventListener("click", () => currentHandlers.onAddFavorite?.(favorite)); chips.append(button); });
-    group.append(title, chips); nodes.push(group);
-  }
-  elements.favoriteChips.replaceChildren(...nodes);
+
+  const rows = favorites.map((favorite) => {
+    const label = document.createElement("label");
+    label.className = "favorite-select-row";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedFavoriteIds.has(favorite.id);
+    checkbox.setAttribute("aria-label", `${favorite.item_text} auswählen`);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedFavoriteIds.add(favorite.id);
+      else selectedFavoriteIds.delete(favorite.id);
+      updateSelectedButton();
+    });
+
+    const name = document.createElement("span");
+    name.className = "favorite-select-name";
+    name.textContent = favorite.item_text;
+
+    const category = document.createElement("small");
+    category.textContent = favorite.category || "Sonstiges";
+
+    const text = document.createElement("span");
+    text.className = "favorite-select-text";
+    text.append(name, category);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "favorite-delete-mini";
+    remove.textContent = "×";
+    remove.setAttribute("aria-label", `${favorite.item_text} löschen`);
+    remove.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      currentHandlers.onDeleteFavorite?.(favorite);
+    });
+
+    label.append(checkbox, text, remove);
+    return label;
+  });
+
+  elements.favoriteSelectionList.replaceChildren(...rows);
   elements.emptyFavorites.classList.toggle("hidden", state.favorites.length > 0);
-  renderFavoriteManager(state.favorites);
+  updateSelectedButton();
 }
 
-function renderFavoriteManager(favorites) {
-  elements.favoriteManagerList.replaceChildren(...favorites.map((favorite) => {
-    const row = document.createElement("div"); row.className = "favorite-manager-row";
-    const text = document.createElement("div"); text.innerHTML = `<strong>${favorite.item_text}</strong><small>${favorite.category || "Sonstiges"}${favorite.repeat_weekday == null ? "" : ` · ${weekdayLabel(favorite.repeat_weekday)}`}</small>`;
-    const actions = document.createElement("div"); actions.className = "manager-actions";
-    const edit = document.createElement("button"); edit.type = "button"; edit.className = "secondary-button compact-button"; edit.textContent = "Ändern"; edit.addEventListener("click", () => fillFavoriteForm(favorite));
-    const remove = document.createElement("button"); remove.type = "button"; remove.className = "danger-button compact-button"; remove.textContent = "Löschen"; remove.addEventListener("click", () => currentHandlers.onDeleteFavorite?.(favorite));
-    actions.append(edit, remove); row.append(text, actions); return row;
-  }));
+function updateSelectedButton() {
+  const count = selectedFavoriteIds.size;
+  elements.addSelectedFavoritesButton.disabled = count === 0;
+  elements.addSelectedFavoritesButton.textContent = count === 0
+    ? "Ausgewählte hinzufügen"
+    : `${count} ${count === 1 ? "Favorit" : "Favoriten"} hinzufügen`;
+}
+
+export function getSelectedFavorites() {
+  const favoritesById = new Map(getState().favorites.map((favorite) => [favorite.id, favorite]));
+  return [...selectedFavoriteIds].map((id) => favoritesById.get(id)).filter(Boolean);
+}
+
+export function clearSelectedFavorites() {
+  selectedFavoriteIds.clear();
+  updateSelectedButton();
+  setState({ favorites: [...getState().favorites] });
 }
 
 function renderItems() {
@@ -101,10 +142,9 @@ function createItem(item) {
 
 function openEditDialog(item) { elements.editItemId.value = item.id; elements.editItemText.value = item.item_text; elements.editDialog.showModal(); }
 export function closeEditDialog() { elements.editDialog.close(); }
-export function openFavoritesDialog() { resetFavoriteForm(); elements.favoriteSearch.value = ""; elements.favoritesDialog.showModal(); setState({ favorites: [...getState().favorites] }); }
+export function openFavoritesDialog() { selectedFavoriteIds.clear(); elements.favoriteSearch.value = ""; resetFavoriteForm(); elements.favoritesDialog.showModal(); setState({ favorites: [...getState().favorites] }); }
 export function closeFavoritesDialog() { elements.favoritesDialog.close(); }
-export function resetFavoriteForm() { elements.favoriteId.value = ""; elements.favoriteText.value = ""; elements.favoriteCategory.value = "Sonstiges"; elements.favoriteRepeat.value = ""; }
-function fillFavoriteForm(favorite) { elements.favoriteId.value = favorite.id; elements.favoriteText.value = favorite.item_text; elements.favoriteCategory.value = favorite.category || "Sonstiges"; elements.favoriteRepeat.value = favorite.repeat_weekday ?? ""; elements.favoriteText.focus(); }
+export function resetFavoriteForm() { elements.favoriteText.value = ""; elements.favoriteCategory.value = "Sonstiges"; }
 
 export function getInviteTokenFromUrl() { return new URL(location.href).searchParams.get("invite") || ""; }
 export function prepareInviteJoin(token) { if (token) elements.inviteToken.value = token; }
@@ -114,6 +154,5 @@ export function setSelectedDate(date) { setState({ selectedDate: date }); }
 
 function formatFullDate(date) { const parsed = new Date(`${date}T12:00:00`); return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(parsed); }
 function formatOverviewDate(date) { const parsed = new Date(`${date}T12:00:00`); const today = new Date(); today.setHours(12,0,0,0); const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1); if (parsed.toDateString() === today.toDateString()) return "Heute"; if (parsed.toDateString() === tomorrow.toDateString()) return "Morgen"; return new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }).format(parsed); }
-function weekdayLabel(day) { return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][day]; }
 let toastTimer; export function showToast(message) { clearTimeout(toastTimer); elements.toast.textContent = message; elements.toast.classList.remove("hidden"); toastTimer = setTimeout(() => elements.toast.classList.add("hidden"), 2800); }
 export function friendlyError(error) { return error?.message || String(error || "Unbekannter Fehler"); }
