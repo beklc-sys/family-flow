@@ -10,6 +10,8 @@ import {
   upsertItem
 } from "./store.js";
 
+let activeFlush = null;
+
 export async function loadShoppingItems(familyId) {
   const { data, error } = await supabase
     .from("shopping_items")
@@ -27,6 +29,7 @@ export async function addShoppingItem(text) {
   if (!cleanText || !family) return;
 
   const userId = family.membership?.user_id || null;
+  const now = new Date().toISOString();
   const optimisticItem = {
     id: crypto.randomUUID(),
     family_id: family.id,
@@ -35,11 +38,13 @@ export async function addShoppingItem(text) {
     is_done: false,
     created_by: userId,
     updated_by: userId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
     completed_at: null,
     pending: true
   };
+
+  if (hasRecentEquivalentItem(optimisticItem)) return;
 
   if (!navigator.onLine) {
     queueInsert(optimisticItem);
@@ -59,11 +64,11 @@ export async function addShoppingItem(text) {
         created_by: currentUserId,
         updated_by: currentUserId
       })
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    upsertItem(data);
+    const savedItem = data?.[0];
+    if (savedItem) upsertItem(savedItem);
   } catch (error) {
     if (!navigator.onLine || isNetworkError(error)) {
       queueInsert(optimisticItem);
@@ -92,15 +97,13 @@ export async function updateShoppingItem(id, changes) {
   }
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("shopping_items")
       .update(changes)
-      .eq("id", id)
-      .select()
-      .single();
+      .eq("id", id);
 
     if (error) throw error;
-    upsertItem(data);
+    upsertItem({ ...optimistic, pending: false });
   } catch (error) {
     if (!navigator.onLine || isNetworkError(error)) {
       upsertItem(optimistic);
@@ -138,7 +141,20 @@ export async function deleteShoppingItem(id) {
 }
 
 export async function flushPendingOperations() {
-  const pending = getPendingOperations();
+  if (activeFlush) return activeFlush;
+
+  activeFlush = performFlush();
+  try {
+    return await activeFlush;
+  } finally {
+    activeFlush = null;
+  }
+}
+
+async function performFlush() {
+  const pending = normalizePendingOperations(getPendingOperations());
+  replacePendingOperations(pending);
+
   if (!pending.length || !navigator.onLine) return true;
 
   setState({ syncing: true, online: true });
@@ -147,7 +163,9 @@ export async function flushPendingOperations() {
   try {
     const userId = await getCurrentUserId();
 
-    for (const operation of pending) {
+    for (let index = 0; index < pending.length; index += 1) {
+      const operation = pending[index];
+
       try {
         if (operation.type === "insert") {
           const item = operation.item;
@@ -161,22 +179,21 @@ export async function flushPendingOperations() {
               is_done: item.is_done,
               created_by: userId,
               updated_by: userId
-            })
-            .select()
-            .single();
+            }, { onConflict: "id" })
+            .select();
 
           if (error) throw error;
-          upsertItem(data);
+          const savedItem = data?.[0];
+          if (savedItem) upsertItem(savedItem);
         } else if (operation.type === "update") {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("shopping_items")
             .update(operation.changes)
-            .eq("id", operation.id)
-            .select()
-            .maybeSingle();
+            .eq("id", operation.id);
 
           if (error) throw error;
-          if (data) upsertItem(data);
+          const current = getState().items.find((item) => item.id === operation.id);
+          if (current) upsertItem({ ...current, ...operation.changes, pending: false });
         } else if (operation.type === "delete") {
           const { error } = await supabase
             .from("shopping_items")
@@ -189,8 +206,7 @@ export async function flushPendingOperations() {
       } catch (error) {
         failed.push(operation);
         if (!navigator.onLine || isNetworkError(error)) {
-          const remaining = pending.slice(pending.indexOf(operation) + 1);
-          failed.push(...remaining);
+          failed.push(...pending.slice(index + 1));
           break;
         }
       }
@@ -205,7 +221,13 @@ export async function flushPendingOperations() {
 
 function queueInsert(item) {
   upsertItem(item);
-  addPendingOperation({ type: "insert", item });
+
+  const operations = getPendingOperations();
+  const duplicate = operations.some((operation) => (
+    operation.type === "insert" && equivalentQueuedItems(operation.item, item)
+  ));
+
+  if (!duplicate) addPendingOperation({ type: "insert", item });
 }
 
 function queueUpdate(id, changes) {
@@ -252,6 +274,46 @@ function queueDelete(id) {
 
   if (!hadPendingInsert) filtered.push({ type: "delete", id });
   replacePendingOperations(filtered);
+}
+
+function normalizePendingOperations(operations) {
+  const normalized = [];
+
+  for (const operation of operations) {
+    if (operation.type !== "insert") {
+      normalized.push(operation);
+      continue;
+    }
+
+    const duplicate = normalized.some((existing) => (
+      existing.type === "insert" && equivalentQueuedItems(existing.item, operation.item)
+    ));
+
+    if (!duplicate) normalized.push(operation);
+  }
+
+  return normalized;
+}
+
+function hasRecentEquivalentItem(item) {
+  return getState().items.some((existing) => equivalentQueuedItems(existing, item));
+}
+
+function equivalentQueuedItems(first, second) {
+  if (!first || !second) return false;
+  if (first.family_id !== second.family_id) return false;
+  if (first.shopping_date !== second.shopping_date) return false;
+  if (normalizeText(first.item_text) !== normalizeText(second.item_text)) return false;
+
+  const firstTime = Date.parse(first.created_at || 0);
+  const secondTime = Date.parse(second.created_at || 0);
+  if (!Number.isFinite(firstTime) || !Number.isFinite(secondTime)) return first.id === second.id;
+
+  return Math.abs(firstTime - secondTime) <= 5000;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLocaleLowerCase("de-DE");
 }
 
 async function getCurrentUserId() {
