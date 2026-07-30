@@ -63,8 +63,11 @@ function renderFavorites(state) {
     .sort((a, b) => a.item_text.localeCompare(b.item_text, "de", { sensitivity: "base" }));
 
   const rows = favorites.map((favorite) => {
-    const label = document.createElement("label");
-    label.className = "favorite-select-row";
+    const row = document.createElement("div");
+    row.className = "favorite-select-row";
+
+    const choice = document.createElement("label");
+    choice.className = "favorite-choice";
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -79,6 +82,7 @@ function renderFavorites(state) {
     const name = document.createElement("span");
     name.className = "favorite-select-name";
     name.textContent = favorite.item_text;
+    choice.append(checkbox, name);
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -88,11 +92,12 @@ function renderFavorites(state) {
     remove.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      selectedFavoriteIds.delete(favorite.id);
       currentHandlers.onDeleteFavorite?.(favorite);
     });
 
-    label.append(checkbox, name, remove);
-    return label;
+    row.append(choice, remove);
+    return row;
   });
 
   elements.favoriteSelectionList.replaceChildren(...rows);
