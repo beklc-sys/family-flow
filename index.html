@@ -8,7 +8,7 @@
   <title>Family Flow</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="favorites.css?v=25">
+  <link rel="stylesheet" href="favorites.css?v=26">
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -19,7 +19,7 @@
       <section id="welcome-view" class="card hidden"><h2>Willkommen bei Family Flow</h2><p>Erstellt eure gemeinsame Einkaufsliste und bearbeitet sie auf beiden Handys.</p><form id="create-family-form" class="stack"><label for="creator-name">Dein Name</label><input id="creator-name" maxlength="40" required><button class="primary-button">Familie erstellen</button></form><div class="divider"><span>oder</span></div><form id="join-family-form" class="stack"><label for="join-name">Dein Name</label><input id="join-name" maxlength="40" required><label for="invite-token">Einladungscode</label><input id="invite-token" required><button class="secondary-button">Familie beitreten</button></form></section>
       <section id="shopping-view" class="hidden">
         <section id="shopping-overview" class="overview-card card"><div class="overview-heading"><div><p class="eyebrow">Auf einen Blick</p><h2>Offene Einkaufstage</h2></div><span id="overview-count" class="count-badge">0</span></div><div id="shopping-date-overview" class="date-overview"></div><p id="empty-overview" class="overview-empty">Aktuell sind keine offenen Einkäufe geplant.</p></section>
-        <div class="date-card card"><div><p class="eyebrow">Einkauf für</p><h2>Einkaufsliste</h2></div><div class="date-picker-label"><span>Datum auswählen</span><div class="date-picker-control"><button id="date-display-button" class="date-display-button" type="button" tabindex="-1">Datum wählen</button><input id="list-date" class="native-date-input" type="date" aria-label="Einkaufsdatum auswählen"></div></div></div>
+        <div class="date-card card"><div><h2>Einkaufsliste</h2></div><div class="date-picker-label"><span>Datum auswählen</span><div class="date-picker-control"><button id="date-display-button" class="date-display-button" type="button" tabindex="-1">Datum wählen</button><input id="list-date" class="native-date-input" type="date" aria-label="Einkaufsdatum auswählen"></div></div></div>
         <form id="add-item-form" class="add-item-card card"><input id="new-item-text" maxlength="200" placeholder="Was brauchen wir?" required><div class="add-actions"><button class="primary-button add-button" type="submit">Hinzufügen</button><button id="open-favorites-button" class="favorite-star-button" type="button" aria-label="Favoriten öffnen" title="Favoriten">★</button></div></form>
         <section class="list-section"><div class="section-heading"><h3>Noch einzukaufen</h3><span id="open-count" class="count-badge">0</span></div><ul id="open-items" class="shopping-list"></ul><div id="empty-open-state" class="empty-state"><div class="empty-icon">🛒</div><p>Für diesen Tag ist noch nichts eingetragen.</p></div></section>
         <section id="done-section" class="list-section hidden"><div class="section-heading"><h3>Schon erledigt</h3><div class="section-actions"><button id="delete-done-button" class="clear-done-button">Erledigte löschen</button><span id="done-count" class="count-badge">0</span></div></div><ul id="done-items" class="shopping-list done-list"></ul></section>
@@ -42,6 +42,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast hidden" role="status"></div>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script type="module" src="js/app.js?v=25"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script type="module" src="js/app.js?v=26"></script>
 </body>
 </html>
