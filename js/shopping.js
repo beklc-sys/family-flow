@@ -107,10 +107,10 @@ export async function flushPendingOperations() {
 }
 
 async function performFlush() {
-  let pending = normalizePendingOperations(getPendingOperations());
-  replacePendingOperations(pending);
+  const initialPending = normalizePendingOperations(getPendingOperations());
+  replacePendingOperations(initialPending);
 
-  if (!pending.length) return true;
+  if (!initialPending.length) return true;
   if (!navigator.onLine) {
     setState({ online: false });
     return false;
@@ -121,13 +121,17 @@ async function performFlush() {
   try {
     const userId = await getCurrentUserId();
 
-    while (pending.length && navigator.onLine) {
-      const operation = pending[0];
+    while (navigator.onLine) {
+      const currentPending = normalizePendingOperations(getPendingOperations());
+      replacePendingOperations(currentPending);
+
+      if (!currentPending.length) return true;
+
+      const operation = currentPending[0];
 
       try {
         await executePendingOperation(operation, userId);
-        pending = pending.slice(1);
-        replacePendingOperations(pending);
+        removeProcessedOperation(operation);
       } catch (error) {
         if (isNetworkError(error) || !navigator.onLine) {
           setState({ online: false });
@@ -139,10 +143,24 @@ async function performFlush() {
       }
     }
 
-    return pending.length === 0;
+    return false;
   } finally {
     setState({ syncing: false, online: navigator.onLine });
   }
+}
+
+function removeProcessedOperation(processedOperation) {
+  const current = normalizePendingOperations(getPendingOperations());
+  const processedKey = operationKey(processedOperation);
+  const index = current.findIndex((operation) => operationKey(operation) === processedKey);
+
+  if (index >= 0) current.splice(index, 1);
+  replacePendingOperations(current);
+}
+
+function operationKey(operation) {
+  if (operation?.type === "insert") return `insert:${operation.item?.id || ""}`;
+  return `${operation?.type || "unknown"}:${operation?.id || ""}`;
 }
 
 async function executePendingOperation(operation, userId) {
