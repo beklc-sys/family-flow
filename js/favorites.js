@@ -134,8 +134,6 @@ export async function createFavorite(itemText) {
     saveFavoritesToState(family.id, withoutOptimistic);
     throw error;
   }
-
-  // Bei fehlender Supabase-Tabelle bleibt der optimistisch gespeicherte Favorit lokal erhalten.
 }
 
 export async function deleteFavorite(id) {
@@ -152,6 +150,30 @@ export async function deleteFavorite(id) {
   if (!error || isFavoritesBackendUnavailable(error)) return;
 
   saveFavoritesToState(family.id, [...remaining, favorite]);
+  throw error;
+}
+
+export async function deleteAllFavorites() {
+  const { family, favorites } = getState();
+  if (!family || favorites.length === 0) return;
+
+  const previous = [...favorites];
+  saveFavoritesToState(family.id, []);
+
+  const remoteIds = previous
+    .filter((favorite) => !favorite.local_only && favorite.id)
+    .map((favorite) => favorite.id);
+
+  if (remoteIds.length === 0) return;
+
+  const { error } = await supabase
+    .from("shopping_favorites")
+    .delete()
+    .in("id", remoteIds);
+
+  if (!error || isFavoritesBackendUnavailable(error)) return;
+
+  saveFavoritesToState(family.id, previous);
   throw error;
 }
 
