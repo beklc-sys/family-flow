@@ -1,4 +1,4 @@
-const CACHE_NAME = "family-flow-v17";
+const CACHE_NAME = "family-flow-v18";
 const APP_SHELL = [
   "./",
   "./index.html",
