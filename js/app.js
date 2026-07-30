@@ -28,8 +28,17 @@ function bindEvents() {
   elements.createForm.addEventListener("submit", async (event) => { event.preventDefault(); await runAction(async () => { await createFamily(elements.creatorName.value); await enterFamily(await loadCurrentFamilyWithRetry()); showShareDialog(); }); });
   elements.joinForm.addEventListener("submit", async (event) => { event.preventDefault(); await runAction(async () => { await joinFamily(elements.inviteToken.value, elements.joinName.value); await enterFamily(await loadCurrentFamilyWithRetry()); clearInviteFromAddress(); }); });
   elements.addForm.addEventListener("submit", async (event) => { event.preventDefault(); const text = elements.newItemText.value.trim(); if (!text) return; elements.newItemText.value = ""; await runAction(() => addShoppingItem(text)); });
-  elements.dateDisplayButton.addEventListener("click", () => { if (elements.listDate.showPicker) elements.listDate.showPicker(); else elements.listDate.click(); });
   elements.listDate.addEventListener("change", async () => { if (elements.listDate.value) await selectDateAndApplyRecurring(elements.listDate.value); });
+  elements.quickFavoriteForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = elements.quickFavoriteText.value.trim();
+    if (!text) return;
+    await runAction(async () => {
+      await createFavorite(text);
+      elements.quickFavoriteText.value = "";
+      showToast("Favorit gespeichert");
+    });
+  });
   elements.favoriteSearch.addEventListener("input", () => setState({ favorites: [...getState().favorites] }));
   elements.manageFavoritesButton.addEventListener("click", openFavoritesDialog);
   elements.closeFavoritesButton.addEventListener("click", closeFavoritesDialog);
