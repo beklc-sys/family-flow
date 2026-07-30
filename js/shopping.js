@@ -20,7 +20,11 @@ export async function loadShoppingItems(familyId) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  setItems(data || []);
+
+  const serverItems = data || [];
+  const pending = normalizePendingOperations(getPendingOperations());
+  replacePendingOperations(pending);
+  setItems(applyPendingOperations(serverItems, pending));
 }
 
 export async function addShoppingItem(text) {
@@ -44,39 +48,14 @@ export async function addShoppingItem(text) {
     pending: true
   };
 
-  if (hasRecentEquivalentItem(optimisticItem)) return;
+  queueInsert(optimisticItem);
 
   if (!navigator.onLine) {
-    queueInsert(optimisticItem);
+    setState({ online: false });
     return;
   }
 
-  try {
-    const currentUserId = await getCurrentUserId();
-    const { data, error } = await supabase
-      .from("shopping_items")
-      .insert({
-        id: optimisticItem.id,
-        family_id: family.id,
-        item_text: cleanText,
-        shopping_date: selectedDate,
-        is_done: false,
-        created_by: currentUserId,
-        updated_by: currentUserId
-      })
-      .select();
-
-    if (error) throw error;
-    const savedItem = data?.[0];
-    if (savedItem) upsertItem(savedItem);
-  } catch (error) {
-    if (!navigator.onLine || isNetworkError(error)) {
-      queueInsert(optimisticItem);
-      setState({ online: false });
-      return;
-    }
-    throw error;
-  }
+  await flushPendingOperations();
 }
 
 export async function updateShoppingItem(id, changes) {
@@ -90,54 +69,30 @@ export async function updateShoppingItem(id, changes) {
     pending: true
   };
 
+  upsertItem(optimistic);
+  queueUpdate(id, changes);
+
   if (!navigator.onLine) {
-    upsertItem(optimistic);
-    queueUpdate(id, changes);
+    setState({ online: false });
     return;
   }
 
-  try {
-    const { error } = await supabase
-      .from("shopping_items")
-      .update(changes)
-      .eq("id", id);
-
-    if (error) throw error;
-    upsertItem({ ...optimistic, pending: false });
-  } catch (error) {
-    if (!navigator.onLine || isNetworkError(error)) {
-      upsertItem(optimistic);
-      queueUpdate(id, changes);
-      setState({ online: false });
-      return;
-    }
-    throw error;
-  }
+  await flushPendingOperations();
 }
 
 export async function deleteShoppingItem(id) {
   const current = getState().items.find((item) => item.id === id);
   if (!current) return;
 
+  removeItemFromStore(id);
+  queueDelete(id);
+
   if (!navigator.onLine) {
-    removeItemFromStore(id);
-    queueDelete(id);
+    setState({ online: false });
     return;
   }
 
-  try {
-    const { error } = await supabase.from("shopping_items").delete().eq("id", id);
-    if (error) throw error;
-    removeItemFromStore(id);
-  } catch (error) {
-    if (!navigator.onLine || isNetworkError(error)) {
-      removeItemFromStore(id);
-      queueDelete(id);
-      setState({ online: false });
-      return;
-    }
-    throw error;
-  }
+  await flushPendingOperations();
 }
 
 export async function flushPendingOperations() {
@@ -152,82 +107,169 @@ export async function flushPendingOperations() {
 }
 
 async function performFlush() {
-  const pending = normalizePendingOperations(getPendingOperations());
+  let pending = normalizePendingOperations(getPendingOperations());
   replacePendingOperations(pending);
 
-  if (!pending.length || !navigator.onLine) return true;
+  if (!pending.length) return true;
+  if (!navigator.onLine) {
+    setState({ online: false });
+    return false;
+  }
 
   setState({ syncing: true, online: true });
-  const failed = [];
 
   try {
     const userId = await getCurrentUserId();
 
-    for (let index = 0; index < pending.length; index += 1) {
-      const operation = pending[index];
+    while (pending.length && navigator.onLine) {
+      const operation = pending[0];
 
       try {
-        if (operation.type === "insert") {
-          const item = operation.item;
-          const { data, error } = await supabase
-            .from("shopping_items")
-            .upsert({
-              id: item.id,
-              family_id: item.family_id,
-              item_text: item.item_text,
-              shopping_date: item.shopping_date,
-              is_done: item.is_done,
-              created_by: userId,
-              updated_by: userId
-            }, { onConflict: "id" })
-            .select();
-
-          if (error) throw error;
-          const savedItem = data?.[0];
-          if (savedItem) upsertItem(savedItem);
-        } else if (operation.type === "update") {
-          const { error } = await supabase
-            .from("shopping_items")
-            .update(operation.changes)
-            .eq("id", operation.id);
-
-          if (error) throw error;
-          const current = getState().items.find((item) => item.id === operation.id);
-          if (current) upsertItem({ ...current, ...operation.changes, pending: false });
-        } else if (operation.type === "delete") {
-          const { error } = await supabase
-            .from("shopping_items")
-            .delete()
-            .eq("id", operation.id);
-
-          if (error) throw error;
-          removeItemFromStore(operation.id);
-        }
+        await executePendingOperation(operation, userId);
+        pending = pending.slice(1);
+        replacePendingOperations(pending);
       } catch (error) {
-        failed.push(operation);
-        if (!navigator.onLine || isNetworkError(error)) {
-          failed.push(...pending.slice(index + 1));
-          break;
+        if (isNetworkError(error) || !navigator.onLine) {
+          setState({ online: false });
+          return false;
         }
+
+        console.error("Offline-Vorgang konnte nicht synchronisiert werden", operation, error);
+        return false;
       }
     }
 
-    replacePendingOperations(failed);
-    return failed.length === 0;
+    return pending.length === 0;
   } finally {
     setState({ syncing: false, online: navigator.onLine });
   }
+}
+
+async function executePendingOperation(operation, userId) {
+  if (operation.type === "insert") {
+    await synchronizeInsert(operation.item, userId);
+    return;
+  }
+
+  if (operation.type === "update") {
+    await synchronizeUpdate(operation.id, operation.changes);
+    return;
+  }
+
+  if (operation.type === "delete") {
+    await synchronizeDelete(operation.id);
+    return;
+  }
+
+  throw new Error(`Unbekannter Offline-Vorgang: ${operation.type}`);
+}
+
+async function synchronizeInsert(item, userId) {
+  const { data: existing, error: lookupError } = await supabase
+    .from("shopping_items")
+    .select("*")
+    .eq("id", item.id)
+    .limit(1);
+
+  if (lookupError) throw lookupError;
+
+  if (existing?.[0]) {
+    upsertItem({ ...existing[0], pending: false });
+    return;
+  }
+
+  const { error: insertError } = await supabase
+    .from("shopping_items")
+    .insert({
+      id: item.id,
+      family_id: item.family_id,
+      item_text: item.item_text,
+      shopping_date: item.shopping_date,
+      is_done: Boolean(item.is_done),
+      created_by: userId,
+      updated_by: userId
+    });
+
+  if (insertError) throw insertError;
+
+  const { data: saved, error: savedError } = await supabase
+    .from("shopping_items")
+    .select("*")
+    .eq("id", item.id)
+    .limit(1);
+
+  if (savedError) throw savedError;
+  if (!saved?.[0]) throw new Error("Der Offline-Eintrag wurde vom Server nicht bestätigt.");
+
+  upsertItem({ ...saved[0], pending: false });
+}
+
+async function synchronizeUpdate(id, changes) {
+  const { error: updateError } = await supabase
+    .from("shopping_items")
+    .update(changes)
+    .eq("id", id);
+
+  if (updateError) throw updateError;
+
+  const { data: saved, error: savedError } = await supabase
+    .from("shopping_items")
+    .select("*")
+    .eq("id", id)
+    .limit(1);
+
+  if (savedError) throw savedError;
+
+  if (saved?.[0]) {
+    upsertItem({ ...saved[0], pending: false });
+    return;
+  }
+
+  const stillPendingInsert = getPendingOperations().some(
+    (operation) => operation.type === "insert" && operation.item.id === id
+  );
+
+  if (!stillPendingInsert) {
+    throw new Error("Der geänderte Eintrag wurde auf dem Server nicht gefunden.");
+  }
+}
+
+async function synchronizeDelete(id) {
+  const { error: deleteError } = await supabase
+    .from("shopping_items")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) throw deleteError;
+
+  const { data: remaining, error: lookupError } = await supabase
+    .from("shopping_items")
+    .select("id")
+    .eq("id", id)
+    .limit(1);
+
+  if (lookupError) throw lookupError;
+  if (remaining?.length) throw new Error("Der gelöschte Eintrag ist noch auf dem Server vorhanden.");
+
+  removeItemFromStore(id);
 }
 
 function queueInsert(item) {
   upsertItem(item);
 
   const operations = getPendingOperations();
-  const duplicate = operations.some((operation) => (
-    operation.type === "insert" && equivalentQueuedItems(operation.item, item)
-  ));
+  const existingIndex = operations.findIndex(
+    (operation) => operation.type === "insert" && operation.item.id === item.id
+  );
 
-  if (!duplicate) addPendingOperation({ type: "insert", item });
+  if (existingIndex >= 0) {
+    operations[existingIndex] = { type: "insert", item };
+    replacePendingOperations(normalizePendingOperations(operations));
+    return;
+  }
+
+  addPendingOperation({ type: "insert", item });
+  replacePendingOperations(normalizePendingOperations(getPendingOperations()));
 }
 
 function queueUpdate(id, changes) {
@@ -238,10 +280,15 @@ function queueUpdate(id, changes) {
 
   if (insertIndex >= 0) {
     operations[insertIndex] = {
-      ...operations[insertIndex],
-      item: { ...operations[insertIndex].item, ...changes, pending: true }
+      type: "insert",
+      item: {
+        ...operations[insertIndex].item,
+        ...changes,
+        updated_at: new Date().toISOString(),
+        pending: true
+      }
     };
-    replacePendingOperations(operations);
+    replacePendingOperations(normalizePendingOperations(operations));
     return;
   }
 
@@ -251,14 +298,16 @@ function queueUpdate(id, changes) {
 
   if (updateIndex >= 0) {
     operations[updateIndex] = {
-      ...operations[updateIndex],
+      type: "update",
+      id,
       changes: { ...operations[updateIndex].changes, ...changes }
     };
-    replacePendingOperations(operations);
+    replacePendingOperations(normalizePendingOperations(operations));
     return;
   }
 
-  addPendingOperation({ type: "update", id, changes });
+  operations.push({ type: "update", id, changes });
+  replacePendingOperations(normalizePendingOperations(operations));
 }
 
 function queueDelete(id) {
@@ -273,47 +322,101 @@ function queueDelete(id) {
   });
 
   if (!hadPendingInsert) filtered.push({ type: "delete", id });
-  replacePendingOperations(filtered);
+  replacePendingOperations(normalizePendingOperations(filtered));
 }
 
 function normalizePendingOperations(operations) {
   const normalized = [];
 
-  for (const operation of operations) {
-    if (operation.type !== "insert") {
-      normalized.push(operation);
+  for (const operation of Array.isArray(operations) ? operations : []) {
+    if (!operation || !operation.type) continue;
+
+    if (operation.type === "insert" && operation.item?.id) {
+      const index = normalized.findIndex(
+        (entry) => entry.type === "insert" && entry.item.id === operation.item.id
+      );
+      if (index >= 0) normalized[index] = operation;
+      else normalized.push(operation);
       continue;
     }
 
-    const duplicate = normalized.some((existing) => (
-      existing.type === "insert" && equivalentQueuedItems(existing.item, operation.item)
-    ));
+    if (operation.type === "update" && operation.id) {
+      const insertIndex = normalized.findIndex(
+        (entry) => entry.type === "insert" && entry.item.id === operation.id
+      );
+      if (insertIndex >= 0) {
+        normalized[insertIndex] = {
+          type: "insert",
+          item: {
+            ...normalized[insertIndex].item,
+            ...operation.changes,
+            pending: true
+          }
+        };
+        continue;
+      }
 
-    if (!duplicate) normalized.push(operation);
+      const updateIndex = normalized.findIndex(
+        (entry) => entry.type === "update" && entry.id === operation.id
+      );
+      if (updateIndex >= 0) {
+        normalized[updateIndex] = {
+          type: "update",
+          id: operation.id,
+          changes: {
+            ...normalized[updateIndex].changes,
+            ...operation.changes
+          }
+        };
+      } else {
+        normalized.push(operation);
+      }
+      continue;
+    }
+
+    if (operation.type === "delete" && operation.id) {
+      const hadInsert = normalized.some(
+        (entry) => entry.type === "insert" && entry.item.id === operation.id
+      );
+      const withoutItem = normalized.filter((entry) => {
+        if (entry.type === "insert") return entry.item.id !== operation.id;
+        return entry.id !== operation.id;
+      });
+      normalized.splice(0, normalized.length, ...withoutItem);
+      if (!hadInsert) normalized.push(operation);
+    }
   }
 
   return normalized;
 }
 
-function hasRecentEquivalentItem(item) {
-  return getState().items.some((existing) => equivalentQueuedItems(existing, item));
-}
+function applyPendingOperations(serverItems, operations) {
+  const itemsById = new Map((serverItems || []).map((item) => [item.id, item]));
 
-function equivalentQueuedItems(first, second) {
-  if (!first || !second) return false;
-  if (first.family_id !== second.family_id) return false;
-  if (first.shopping_date !== second.shopping_date) return false;
-  if (normalizeText(first.item_text) !== normalizeText(second.item_text)) return false;
+  for (const operation of operations) {
+    if (operation.type === "insert") {
+      itemsById.set(operation.item.id, { ...operation.item, pending: true });
+      continue;
+    }
 
-  const firstTime = Date.parse(first.created_at || 0);
-  const secondTime = Date.parse(second.created_at || 0);
-  if (!Number.isFinite(firstTime) || !Number.isFinite(secondTime)) return first.id === second.id;
+    if (operation.type === "update") {
+      const current = itemsById.get(operation.id);
+      if (current) {
+        itemsById.set(operation.id, {
+          ...current,
+          ...operation.changes,
+          pending: true
+        });
+      }
+      continue;
+    }
 
-  return Math.abs(firstTime - secondTime) <= 5000;
-}
+    if (operation.type === "delete") {
+      itemsById.delete(operation.id);
+    }
+  }
 
-function normalizeText(value) {
-  return String(value || "").trim().toLocaleLowerCase("de-DE");
+  return [...itemsById.values()];
 }
 
 async function getCurrentUserId() {
@@ -333,6 +436,7 @@ function isNetworkError(error) {
     message.includes("load failed") ||
     message.includes("failed to fetch") ||
     message.includes("network") ||
-    message.includes("offline")
+    message.includes("offline") ||
+    message.includes("timeout")
   );
 }
