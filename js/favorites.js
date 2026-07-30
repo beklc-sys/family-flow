@@ -2,23 +2,25 @@ import { supabase } from "./supabase.js";
 import { getState, setState } from "./store.js";
 import { addShoppingItem } from "./shopping.js";
 
-const LEGACY_DEFAULT_NAMES = new Set(["äpfel", "bananen", "brot"]);
-
 function localStorageKey(familyId) {
   return `family-flow-favorites:${familyId}`;
+}
+
+function normalizeName(value) {
+  return String(value || "").trim().toLocaleLowerCase("de-DE");
 }
 
 function readLocalFavorites(familyId) {
   try {
     const stored = JSON.parse(localStorage.getItem(localStorageKey(familyId)) || "[]");
-    return Array.isArray(stored) ? stored : [];
+    return Array.isArray(stored) ? stored.filter((favorite) => favorite?.id && favorite?.item_text) : [];
   } catch {
     return [];
   }
 }
 
 function writeLocalFavorites(familyId, favorites) {
-  localStorage.setItem(localStorageKey(familyId), JSON.stringify(favorites));
+  localStorage.setItem(localStorageKey(familyId), JSON.stringify(sortFavorites(favorites)));
 }
 
 function sortFavorites(favorites) {
@@ -27,12 +29,19 @@ function sortFavorites(favorites) {
   );
 }
 
-function containsOnlyLegacyDefaults(favorites) {
-  if (favorites.length !== LEGACY_DEFAULT_NAMES.size) return false;
-  const names = new Set(
-    favorites.map((favorite) => favorite.item_text.trim().toLowerCase())
-  );
-  return [...LEGACY_DEFAULT_NAMES].every((name) => names.has(name));
+function mergeFavorites(remoteFavorites, localFavorites) {
+  const mergedByName = new Map();
+
+  for (const favorite of remoteFavorites || []) {
+    mergedByName.set(normalizeName(favorite.item_text), favorite);
+  }
+
+  for (const favorite of localFavorites || []) {
+    const key = normalizeName(favorite.item_text);
+    if (!mergedByName.has(key)) mergedByName.set(key, favorite);
+  }
+
+  return sortFavorites([...mergedByName.values()]);
 }
 
 function isFavoritesBackendUnavailable(error) {
@@ -56,22 +65,14 @@ function createLocalFavorite(familyId, itemText) {
   };
 }
 
-async function removeLegacyDefaultsFromBackend(familyId, favorites) {
-  if (!containsOnlyLegacyDefaults(favorites)) return favorites;
-
-  const ids = favorites.map((favorite) => favorite.id).filter(Boolean);
-  if (ids.length) {
-    const { error } = await supabase
-      .from("shopping_favorites")
-      .delete()
-      .in("id", ids);
-    if (error) throw error;
-  }
-
-  return [];
+function saveFavoritesToState(familyId, favorites) {
+  const sorted = sortFavorites(favorites);
+  writeLocalFavorites(familyId, sorted);
+  setState({ favorites: sorted });
 }
 
 export async function loadFavorites(familyId) {
+  const localFavorites = readLocalFavorites(familyId);
   const { data, error } = await supabase
     .from("shopping_favorites")
     .select("id, family_id, item_text, sort_order, created_at")
@@ -79,17 +80,12 @@ export async function loadFavorites(familyId) {
     .order("item_text");
 
   if (!error) {
-    const cleaned = await removeLegacyDefaultsFromBackend(familyId, data || []);
-    setState({ favorites: sortFavorites(cleaned) });
+    saveFavoritesToState(familyId, mergeFavorites(data || [], localFavorites));
     return;
   }
 
   if (!isFavoritesBackendUnavailable(error)) throw error;
-
-  const localFavorites = readLocalFavorites(familyId);
-  const cleaned = containsOnlyLegacyDefaults(localFavorites) ? [] : localFavorites;
-  if (cleaned.length !== localFavorites.length) writeLocalFavorites(familyId, cleaned);
-  setState({ favorites: sortFavorites(cleaned) });
+  saveFavoritesToState(familyId, localFavorites);
 }
 
 export async function createFavorite(itemText) {
@@ -98,29 +94,48 @@ export async function createFavorite(itemText) {
   if (!family || !text) return;
 
   const duplicate = favorites.some(
-    (favorite) => favorite.item_text.trim().toLowerCase() === text.toLowerCase()
+    (favorite) => normalizeName(favorite.item_text) === normalizeName(text)
   );
   if (duplicate) throw new Error("Dieser Favorit ist bereits gespeichert.");
 
-  const { error } = await supabase.from("shopping_favorites").insert({
-    family_id: family.id,
-    item_text: text,
-    sort_order: 0
-  });
+  const optimisticFavorite = createLocalFavorite(family.id, text);
+  saveFavoritesToState(family.id, [...favorites, optimisticFavorite]);
+
+  const { data, error } = await supabase
+    .from("shopping_favorites")
+    .insert({ family_id: family.id, item_text: text, sort_order: 0 })
+    .select("id, family_id, item_text, sort_order, created_at");
 
   if (!error) {
-    await loadFavorites(family.id);
+    const savedFavorite = Array.isArray(data) ? data[0] : null;
+    const currentFavorites = getState().favorites.filter(
+      (favorite) => favorite.id !== optimisticFavorite.id
+    );
+    saveFavoritesToState(
+      family.id,
+      savedFavorite ? [...currentFavorites, savedFavorite] : currentFavorites
+    );
     return;
   }
 
-  if (!isFavoritesBackendUnavailable(error)) throw error;
+  if (error.code === "23505") {
+    const withoutOptimistic = getState().favorites.filter(
+      (favorite) => favorite.id !== optimisticFavorite.id
+    );
+    saveFavoritesToState(family.id, withoutOptimistic);
+    await loadFavorites(family.id);
+    throw new Error("Dieser Favorit ist bereits gespeichert.");
+  }
 
-  const updated = sortFavorites([
-    ...favorites,
-    createLocalFavorite(family.id, text)
-  ]);
-  writeLocalFavorites(family.id, updated);
-  setState({ favorites: updated });
+  if (!isFavoritesBackendUnavailable(error)) {
+    const withoutOptimistic = getState().favorites.filter(
+      (favorite) => favorite.id !== optimisticFavorite.id
+    );
+    saveFavoritesToState(family.id, withoutOptimistic);
+    throw error;
+  }
+
+  // Bei fehlender Supabase-Tabelle bleibt der optimistisch gespeicherte Favorit lokal erhalten.
 }
 
 export async function deleteFavorite(id) {
@@ -128,25 +143,16 @@ export async function deleteFavorite(id) {
   if (!family) return;
 
   const favorite = favorites.find((entry) => entry.id === id);
-  if (favorite?.local_only) {
-    const updated = favorites.filter((entry) => entry.id !== id);
-    writeLocalFavorites(family.id, updated);
-    setState({ favorites: sortFavorites(updated) });
-    return;
-  }
+  const remaining = favorites.filter((entry) => entry.id !== id);
+  saveFavoritesToState(family.id, remaining);
+
+  if (!favorite || favorite.local_only) return;
 
   const { error } = await supabase.from("shopping_favorites").delete().eq("id", id);
+  if (!error || isFavoritesBackendUnavailable(error)) return;
 
-  if (!error) {
-    await loadFavorites(family.id);
-    return;
-  }
-
-  if (!isFavoritesBackendUnavailable(error)) throw error;
-
-  const updated = favorites.filter((entry) => entry.id !== id);
-  writeLocalFavorites(family.id, updated);
-  setState({ favorites: sortFavorites(updated) });
+  saveFavoritesToState(family.id, [...remaining, favorite]);
+  throw error;
 }
 
 export async function addFavoriteToShoppingList(favorite) {
