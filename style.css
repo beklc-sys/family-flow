@@ -30,6 +30,7 @@ body {
 
 button, input { font: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: wait; opacity: 0.65; }
 
 .app-shell {
   width: min(100%, 760px);
@@ -43,7 +44,8 @@ button { cursor: pointer; }
 .section-heading,
 .date-card,
 .copy-row,
-.dialog-actions {
+.dialog-actions,
+.section-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -134,7 +136,19 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(103, 80, 
 
 .list-section { margin-top: 22px; }
 .section-heading { margin: 0 6px 10px; }
+.section-actions { justify-content: flex-end; gap: 8px; }
 .count-badge { min-width: 28px; padding: 4px 8px; border-radius: 999px; text-align: center; color: var(--primary-dark); background: var(--primary-soft); font-size: .8rem; font-weight: 900; }
+.clear-done-button {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--danger);
+  background: #ffedea;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+.clear-done-button:hover { background: #ffdcd7; }
 .shopping-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
 
 .shopping-item {
@@ -221,4 +235,6 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(103, 80, 
   .add-item-card { grid-template-columns: 1fr; }
   .add-button { width: 100%; }
   .copy-row { align-items: stretch; flex-direction: column; }
+  .section-heading { align-items: flex-start; }
+  .section-actions { align-items: flex-end; flex-direction: column-reverse; gap: 5px; }
 }
