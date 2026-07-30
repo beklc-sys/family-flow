@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#6750a4">
+  <meta name="description" content="Family Flow – unsere gemeinsame Einkaufsliste">
+  <title>Family Flow</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Unsere Familie</p>
+        <h1>Family Flow</h1>
+      </div>
+      <button id="share-family-button" class="icon-button hidden" type="button" aria-label="Familie teilen" title="Familie teilen">↗</button>
+    </header>
+
+    <div id="connection-status" class="status-pill" role="status" aria-live="polite">Wird gestartet …</div>
+
+    <main>
+      <section id="loading-view" class="card centered-view">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Family Flow wird geladen …</p>
+      </section>
+
+      <section id="welcome-view" class="card hidden" aria-labelledby="welcome-title">
+        <h2 id="welcome-title">Willkommen bei Family Flow</h2>
+        <p>Erstellt eure gemeinsame Einkaufsliste und bearbeitet sie auf beiden Handys.</p>
+
+        <form id="create-family-form" class="stack">
+          <label for="creator-name">Dein Name</label>
+          <input id="creator-name" name="creatorName" type="text" maxlength="40" autocomplete="name" placeholder="z. B. Christoph" required>
+          <button class="primary-button" type="submit">Familie erstellen</button>
+        </form>
+
+        <div class="divider"><span>oder</span></div>
+
+        <form id="join-family-form" class="stack">
+          <label for="join-name">Dein Name</label>
+          <input id="join-name" name="joinName" type="text" maxlength="40" autocomplete="name" placeholder="Name des zweiten Elternteils" required>
+          <label for="invite-token">Einladungscode</label>
+          <input id="invite-token" name="inviteToken" type="text" autocomplete="off" spellcheck="false" placeholder="Wird über den Einladungslink eingesetzt" required>
+          <button class="secondary-button" type="submit">Familie beitreten</button>
+        </form>
+      </section>
+
+      <section id="shopping-view" class="hidden" aria-labelledby="shopping-title">
+        <div class="date-card card">
+          <div>
+            <p class="eyebrow">Einkauf für</p>
+            <h2 id="shopping-title">Einkaufsliste</h2>
+          </div>
+          <label class="date-picker-label" for="list-date">
+            <span>Datum auswählen</span>
+            <input id="list-date" type="date">
+          </label>
+        </div>
+
+        <form id="add-item-form" class="add-item-card card">
+          <label class="sr-only" for="new-item-text">Was soll eingekauft werden?</label>
+          <input id="new-item-text" name="itemText" type="text" maxlength="200" autocomplete="off" placeholder="Was brauchen wir?" required>
+          <button class="primary-button add-button" type="submit" aria-label="Eintrag hinzufügen">Hinzufügen</button>
+        </form>
+
+        <section class="list-section" aria-labelledby="open-items-title">
+          <div class="section-heading">
+            <h3 id="open-items-title">Noch einzukaufen</h3>
+            <span id="open-count" class="count-badge">0</span>
+          </div>
+          <ul id="open-items" class="shopping-list"></ul>
+          <div id="empty-open-state" class="empty-state">
+            <div class="empty-icon" aria-hidden="true">🛒</div>
+            <p>Für diesen Tag ist noch nichts eingetragen.</p>
+          </div>
+        </section>
+
+        <section id="done-section" class="list-section hidden" aria-labelledby="done-items-title">
+          <div class="section-heading">
+            <h3 id="done-items-title">Schon erledigt</h3>
+            <span id="done-count" class="count-badge">0</span>
+          </div>
+          <ul id="done-items" class="shopping-list done-list"></ul>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="share-dialog" class="dialog-card">
+    <form method="dialog" class="dialog-header">
+      <div>
+        <p class="eyebrow">Zweites Handy verbinden</p>
+        <h2>Familie teilen</h2>
+      </div>
+      <button class="icon-button" value="cancel" aria-label="Schließen">×</button>
+    </form>
+    <p>Öffne diesen Link auf dem zweiten Handy oder scanne den QR-Code.</p>
+    <div id="qr-code" class="qr-code" aria-label="QR-Code des Einladungslinks"></div>
+    <label for="invite-link">Einladungslink</label>
+    <div class="copy-row">
+      <input id="invite-link" type="text" readonly>
+      <button id="copy-invite-button" class="secondary-button" type="button">Kopieren</button>
+    </div>
+    <p class="hint">Der Link gewährt genau einem weiteren Gerät Zugang zu eurer Familie.</p>
+  </dialog>
+
+  <dialog id="edit-dialog" class="dialog-card">
+    <form id="edit-item-form" class="stack">
+      <div class="dialog-header">
+        <h2>Eintrag bearbeiten</h2>
+        <button class="icon-button" type="button" data-close-edit aria-label="Schließen">×</button>
+      </div>
+      <input id="edit-item-id" type="hidden">
+      <label for="edit-item-text">Bezeichnung</label>
+      <input id="edit-item-text" type="text" maxlength="200" required>
+      <div class="dialog-actions">
+        <button id="delete-item-button" class="danger-button" type="button">Löschen</button>
+        <button class="primary-button" type="submit">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
