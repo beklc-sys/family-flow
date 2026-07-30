@@ -28,7 +28,21 @@
   </div>
   <dialog id="share-dialog" class="dialog-card"><form method="dialog" class="dialog-header"><h2>Familie teilen</h2><button class="icon-button" value="cancel">×</button></form><div id="qr-code" class="qr-code"></div><div class="copy-row"><input id="invite-link" readonly><button id="copy-invite-button" class="secondary-button">Kopieren</button></div></dialog>
   <dialog id="edit-dialog" class="dialog-card"><form id="edit-item-form" class="stack"><div class="dialog-header"><h2>Eintrag bearbeiten</h2><button class="icon-button" type="button" data-close-edit>×</button></div><input id="edit-item-id" type="hidden"><label for="edit-item-text">Bezeichnung</label><input id="edit-item-text" maxlength="200" required><button id="save-as-favorite-button" class="secondary-button" type="button">☆ Als Favorit speichern</button><div class="dialog-actions"><button id="delete-item-button" class="danger-button" type="button">Löschen</button><button class="primary-button">Speichern</button></div></form></dialog>
-  <dialog id="favorites-dialog" class="dialog-card favorites-dialog"><div class="dialog-header"><div><p class="eyebrow">Schnell hinzufügen</p><h2>Favoriten</h2></div><button id="close-favorites-button" class="icon-button" type="button" aria-label="Schließen">×</button></div><input id="favorite-search" type="search" placeholder="Favoriten durchsuchen …" aria-label="Favoriten durchsuchen"><div id="favorite-chips" class="favorite-chips"></div><p id="empty-favorites" class="overview-empty">Noch keine Favoriten gespeichert.</p><div class="dialog-divider"></div><form id="favorite-form" class="stack"><input id="favorite-id" type="hidden"><label for="favorite-text">Neuen Favoriten anlegen</label><input id="favorite-text" maxlength="200" placeholder="z. B. Milch" required><label for="favorite-category">Kategorie</label><input id="favorite-category" maxlength="60" placeholder="z. B. Obst"><label for="favorite-repeat">Automatisch wiederholen</label><select id="favorite-repeat"><option value="">Keine Wiederholung</option><option value="1">Jeden Montag</option><option value="2">Jeden Dienstag</option><option value="3">Jeden Mittwoch</option><option value="4">Jeden Donnerstag</option><option value="5">Jeden Freitag</option><option value="6">Jeden Samstag</option><option value="0">Jeden Sonntag</option></select><button class="primary-button">Favorit speichern</button></form><div id="favorite-manager-list" class="favorite-manager-list"></div></dialog>
+  <dialog id="favorites-dialog" class="dialog-card favorites-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Schnell hinzufügen</p><h2>Favoriten</h2></div><button id="close-favorites-button" class="icon-button" type="button" aria-label="Schließen">×</button></div>
+    <input id="favorite-search" type="search" placeholder="Favoriten durchsuchen …" aria-label="Favoriten durchsuchen">
+    <div id="favorite-selection-list" class="favorite-selection-list"></div>
+    <p id="empty-favorites" class="overview-empty">Noch keine Favoriten gespeichert.</p>
+    <button id="add-selected-favorites-button" class="primary-button selected-favorites-button" type="button" disabled>Ausgewählte hinzufügen</button>
+    <div class="dialog-divider"></div>
+    <form id="favorite-form" class="stack">
+      <label for="favorite-text">Neuen Favoriten anlegen</label>
+      <input id="favorite-text" maxlength="200" placeholder="z. B. Milch" required>
+      <label for="favorite-category">Kategorie</label>
+      <input id="favorite-category" maxlength="60" placeholder="z. B. Obst">
+      <button class="secondary-button" type="submit">Favorit speichern</button>
+    </form>
+  </dialog>
   <div id="toast" class="toast hidden" role="status"></div>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script type="module" src="js/app.js"></script>
 </body>
