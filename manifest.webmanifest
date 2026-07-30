@@ -1,0 +1,12 @@
+{
+  "name": "Family Flow",
+  "short_name": "Family Flow",
+  "description": "Unsere gemeinsame Familien-Einkaufsliste",
+  "lang": "de-DE",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5fb",
+  "theme_color": "#6750a4",
+  "orientation": "portrait-primary"
+}
