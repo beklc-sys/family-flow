@@ -2,7 +2,7 @@ import { getState, itemsForSelectedDate, setState, subscribe } from "./store.js"
 
 const $ = (selector) => document.querySelector(selector);
 export const elements = {
-  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), quickFavoriteForm: $("#quick-favorite-form"), quickFavoriteText: $("#quick-favorite-text"), favoriteSearch: $("#favorite-search"), favoriteChips: $("#favorite-chips"), emptyFavorites: $("#empty-favorites"), manageFavoritesButton: $("#manage-favorites-button"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteId: $("#favorite-id"), favoriteText: $("#favorite-text"), favoriteCategory: $("#favorite-category"), favoriteRepeat: $("#favorite-repeat"), favoriteManagerList: $("#favorite-manager-list"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
+  loadingView: $("#loading-view"), welcomeView: $("#welcome-view"), shoppingView: $("#shopping-view"), connectionStatus: $("#connection-status"), shareButton: $("#share-family-button"), createForm: $("#create-family-form"), joinForm: $("#join-family-form"), creatorName: $("#creator-name"), joinName: $("#join-name"), inviteToken: $("#invite-token"), listDate: $("#list-date"), dateDisplayButton: $("#date-display-button"), addForm: $("#add-item-form"), newItemText: $("#new-item-text"), openFavoritesButton: $("#open-favorites-button"), shoppingOverview: $("#shopping-overview"), shoppingDateOverview: $("#shopping-date-overview"), overviewCount: $("#overview-count"), emptyOverview: $("#empty-overview"), openItems: $("#open-items"), doneItems: $("#done-items"), openCount: $("#open-count"), doneCount: $("#done-count"), emptyOpenState: $("#empty-open-state"), doneSection: $("#done-section"), deleteDoneButton: $("#delete-done-button"), favoriteSearch: $("#favorite-search"), favoriteChips: $("#favorite-chips"), emptyFavorites: $("#empty-favorites"), favoritesDialog: $("#favorites-dialog"), closeFavoritesButton: $("#close-favorites-button"), favoriteForm: $("#favorite-form"), favoriteId: $("#favorite-id"), favoriteText: $("#favorite-text"), favoriteCategory: $("#favorite-category"), favoriteRepeat: $("#favorite-repeat"), favoriteManagerList: $("#favorite-manager-list"), shareDialog: $("#share-dialog"), inviteLink: $("#invite-link"), copyInviteButton: $("#copy-invite-button"), qrCode: $("#qr-code"), editDialog: $("#edit-dialog"), editForm: $("#edit-item-form"), editItemId: $("#edit-item-id"), editItemText: $("#edit-item-text"), deleteItemButton: $("#delete-item-button"), saveAsFavoriteButton: $("#save-as-favorite-button"), toast: $("#toast")
 };
 
 let currentHandlers = {};
@@ -56,7 +56,7 @@ function createDateButton(date, count, selectedDate) {
 
 function renderFavorites(state) {
   const query = elements.favoriteSearch.value.trim().toLowerCase();
-  const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query) || favorite.category.toLowerCase().includes(query));
+  const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query) || (favorite.category || "").toLowerCase().includes(query));
   const grouped = new Map();
   favorites.forEach((favorite) => { const category = favorite.category || "Sonstiges"; if (!grouped.has(category)) grouped.set(category, []); grouped.get(category).push(favorite); });
   const nodes = [];
@@ -64,7 +64,7 @@ function renderFavorites(state) {
     const group = document.createElement("div"); group.className = "favorite-group";
     const title = document.createElement("p"); title.className = "favorite-category-title"; title.textContent = category;
     const chips = document.createElement("div"); chips.className = "favorite-chip-row";
-    entries.forEach((favorite) => { const button = document.createElement("button"); button.type = "button"; button.className = "favorite-chip"; button.textContent = `＋ ${favorite.item_text}`; button.addEventListener("click", () => currentHandlers.onAddFavorite?.(favorite)); chips.append(button); });
+    entries.forEach((favorite) => { const button = document.createElement("button"); button.type = "button"; button.className = "favorite-chip"; button.textContent = favorite.item_text; button.addEventListener("click", () => currentHandlers.onAddFavorite?.(favorite)); chips.append(button); });
     group.append(title, chips); nodes.push(group);
   }
   elements.favoriteChips.replaceChildren(...nodes);
@@ -75,7 +75,7 @@ function renderFavorites(state) {
 function renderFavoriteManager(favorites) {
   elements.favoriteManagerList.replaceChildren(...favorites.map((favorite) => {
     const row = document.createElement("div"); row.className = "favorite-manager-row";
-    const text = document.createElement("div"); text.innerHTML = `<strong>${favorite.item_text}</strong><small>${favorite.category}${favorite.repeat_weekday == null ? "" : ` · ${weekdayLabel(favorite.repeat_weekday)}`}</small>`;
+    const text = document.createElement("div"); text.innerHTML = `<strong>${favorite.item_text}</strong><small>${favorite.category || "Sonstiges"}${favorite.repeat_weekday == null ? "" : ` · ${weekdayLabel(favorite.repeat_weekday)}`}</small>`;
     const actions = document.createElement("div"); actions.className = "manager-actions";
     const edit = document.createElement("button"); edit.type = "button"; edit.className = "secondary-button compact-button"; edit.textContent = "Ändern"; edit.addEventListener("click", () => fillFavoriteForm(favorite));
     const remove = document.createElement("button"); remove.type = "button"; remove.className = "danger-button compact-button"; remove.textContent = "Löschen"; remove.addEventListener("click", () => currentHandlers.onDeleteFavorite?.(favorite));
@@ -101,10 +101,10 @@ function createItem(item) {
 
 function openEditDialog(item) { elements.editItemId.value = item.id; elements.editItemText.value = item.item_text; elements.editDialog.showModal(); }
 export function closeEditDialog() { elements.editDialog.close(); }
-export function openFavoritesDialog() { resetFavoriteForm(); elements.favoritesDialog.showModal(); }
+export function openFavoritesDialog() { resetFavoriteForm(); elements.favoriteSearch.value = ""; elements.favoritesDialog.showModal(); setState({ favorites: [...getState().favorites] }); }
 export function closeFavoritesDialog() { elements.favoritesDialog.close(); }
 export function resetFavoriteForm() { elements.favoriteId.value = ""; elements.favoriteText.value = ""; elements.favoriteCategory.value = "Sonstiges"; elements.favoriteRepeat.value = ""; }
-function fillFavoriteForm(favorite) { elements.favoriteId.value = favorite.id; elements.favoriteText.value = favorite.item_text; elements.favoriteCategory.value = favorite.category; elements.favoriteRepeat.value = favorite.repeat_weekday ?? ""; elements.favoriteText.focus(); }
+function fillFavoriteForm(favorite) { elements.favoriteId.value = favorite.id; elements.favoriteText.value = favorite.item_text; elements.favoriteCategory.value = favorite.category || "Sonstiges"; elements.favoriteRepeat.value = favorite.repeat_weekday ?? ""; elements.favoriteText.focus(); }
 
 export function getInviteTokenFromUrl() { return new URL(location.href).searchParams.get("invite") || ""; }
 export function prepareInviteJoin(token) { if (token) elements.inviteToken.value = token; }
