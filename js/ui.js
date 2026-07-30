@@ -22,6 +22,7 @@ export const elements = {
   doneCount: $("#done-count"),
   emptyOpenState: $("#empty-open-state"),
   doneSection: $("#done-section"),
+  deleteDoneButton: $("#delete-done-button"),
   shareDialog: $("#share-dialog"),
   inviteLink: $("#invite-link"),
   copyInviteButton: $("#copy-invite-button"),
@@ -78,6 +79,7 @@ function renderItems(handlers) {
   elements.doneCount.textContent = String(done.length);
   elements.emptyOpenState.classList.toggle("hidden", open.length > 0);
   elements.doneSection.classList.toggle("hidden", done.length === 0);
+  elements.deleteDoneButton.classList.toggle("hidden", done.length === 0);
 }
 
 function createItem(item, handlers) {
