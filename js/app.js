@@ -45,7 +45,7 @@ async function init() {
 
   try {
     await ensureAnonymousSession();
-    const family = await getCurrentFamily();
+    const family = await loadCurrentFamilyWithRetry(3);
 
     if (!family) {
       setState({ family: null, loading: false, error: null });
@@ -53,6 +53,7 @@ async function init() {
     }
 
     await enterFamily(family);
+    clearInviteFromAddress();
   } catch (error) {
     setState({ loading: false, error: friendlyError(error) });
   }
@@ -63,7 +64,7 @@ function bindEvents() {
     event.preventDefault();
     await runAction(async () => {
       await createFamily(elements.creatorName.value);
-      const family = await getCurrentFamily();
+      const family = await loadCurrentFamilyWithRetry();
       await enterFamily(family);
       showShareDialog();
     });
@@ -71,13 +72,36 @@ function bindEvents() {
 
   elements.joinForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await runAction(async () => {
-      await joinFamily(elements.inviteToken.value, elements.joinName.value);
-      const family = await getCurrentFamily();
+    const submitButton = elements.joinForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.textContent = "Wird verbunden …";
+
+    try {
+      setState({ error: null });
+
+      try {
+        await joinFamily(elements.inviteToken.value, elements.joinName.value);
+      } catch (error) {
+        const message = error?.message || "";
+        const alreadyJoined = message.includes("bereits zu einer Familie") || message.includes("already belongs");
+        if (!alreadyJoined) throw error;
+      }
+
+      const family = await loadCurrentFamilyWithRetry();
+      if (!family) throw new Error("Der Beitritt wurde gespeichert, aber die Familie konnte noch nicht geladen werden. Bitte die Seite neu laden.");
+
       await enterFamily(family);
-      history.replaceState({}, "", window.location.pathname);
+      clearInviteFromAddress();
       showToast("Familie erfolgreich verbunden");
-    });
+    } catch (error) {
+      const message = friendlyError(error);
+      showToast(message);
+      setState({ error: message });
+      console.error(error);
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Familie beitreten";
+    }
   });
 
   elements.addForm.addEventListener("submit", async (event) => {
@@ -128,6 +152,31 @@ function bindEvents() {
   });
 
   window.addEventListener("offline", () => setState({ online: false }));
+}
+
+async function loadCurrentFamilyWithRetry(attempts = 6) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const family = await getCurrentFamily();
+      if (family) return family;
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
+  }
+
+  if (lastError) throw lastError;
+  return null;
+}
+
+function clearInviteFromAddress() {
+  const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+  history.replaceState({}, "", cleanUrl);
 }
 
 async function enterFamily(family) {
