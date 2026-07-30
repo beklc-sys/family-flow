@@ -146,12 +146,21 @@ function bindEvents() {
 
   window.addEventListener("online", async () => {
     setState({ online: true, error: null });
-    await runAction(flushPendingOperations, false);
-    const family = getState().family;
-    if (family) await runAction(() => loadShoppingItems(family.id), false);
+    await synchronizeAfterReconnect();
   });
 
   window.addEventListener("offline", () => setState({ online: false }));
+}
+
+async function synchronizeAfterReconnect() {
+  const family = getState().family;
+  if (!family) return;
+
+  const synchronized = await flushPendingOperations();
+  if (synchronized) {
+    await loadShoppingItems(family.id);
+    setState({ error: null, online: true });
+  }
 }
 
 async function loadCurrentFamilyWithRetry(attempts = 6) {
@@ -185,8 +194,8 @@ async function enterFamily(family) {
   setState({ family, loading: false, error: null });
 
   if (navigator.onLine) {
-    await loadShoppingItems(family.id);
-    await flushPendingOperations();
+    const synchronized = await flushPendingOperations();
+    if (synchronized) await loadShoppingItems(family.id);
   }
 
   await unsubscribe(realtimeChannel);
