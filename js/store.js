@@ -5,6 +5,7 @@ const listeners = new Set();
 const initialState = {
   family: null,
   items: [],
+  favorites: [],
   selectedDate: new Date().toISOString().slice(0, 10),
   loading: true,
   online: navigator.onLine,
@@ -27,6 +28,7 @@ function persist() {
   const snapshot = {
     family: state.family,
     items: state.items,
+    favorites: state.favorites,
     selectedDate: state.selectedDate
   };
   localStorage.setItem(CONFIG.cacheKey, JSON.stringify(snapshot));
@@ -68,6 +70,23 @@ export function removeItemFromStore(id) {
 
 export function itemsForSelectedDate() {
   return state.items.filter((item) => item.shopping_date === state.selectedDate);
+}
+
+export function setFavorites(favorites) {
+  const unique = Array.from(
+    new Map((favorites || []).filter(Boolean).map((favorite) => [favorite.id, favorite])).values()
+  );
+  unique.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.item_text.localeCompare(b.item_text, "de"));
+  setState({ favorites: unique });
+}
+
+export function upsertFavorite(favorite) {
+  if (!favorite?.id) return;
+  setFavorites([...state.favorites.filter((entry) => entry.id !== favorite.id), favorite]);
+}
+
+export function removeFavoriteFromStore(id) {
+  setFavorites(state.favorites.filter((favorite) => favorite.id !== id));
 }
 
 function sortItems(items) {
