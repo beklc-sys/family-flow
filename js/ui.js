@@ -58,7 +58,9 @@ function createDateButton(date, count, selectedDate) {
 
 function renderFavorites(state) {
   const query = elements.favoriteSearch.value.trim().toLowerCase();
-  const favorites = state.favorites.filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query));
+  const favorites = state.favorites
+    .filter((favorite) => !query || favorite.item_text.toLowerCase().includes(query))
+    .sort((a, b) => a.item_text.localeCompare(b.item_text, "de", { sensitivity: "base" }));
 
   const rows = favorites.map((favorite) => {
     const label = document.createElement("label");
