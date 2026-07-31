@@ -7,8 +7,8 @@
   <meta name="description" content="Family Flow – unsere gemeinsame Einkaufsliste">
   <title>Family Flow</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=31">
-  <link rel="stylesheet" href="favorites.css?v=31">
+  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="favorites.css?v=32">
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -29,7 +29,7 @@
   <dialog id="share-dialog" class="dialog-card"><form method="dialog" class="dialog-header"><h2>Familie teilen</h2><button class="icon-button" value="cancel">×</button></form><div id="qr-code" class="qr-code"></div><div class="copy-row"><input id="invite-link" readonly><button id="copy-invite-button" class="secondary-button">Kopieren</button></div></dialog>
   <dialog id="edit-dialog" class="dialog-card"><form id="edit-item-form" class="stack"><div class="dialog-header"><h2>Eintrag bearbeiten</h2><button class="icon-button" type="button" data-close-edit>×</button></div><input id="edit-item-id" type="hidden"><label for="edit-item-text">Bezeichnung</label><input id="edit-item-text" maxlength="200" required><button id="save-as-favorite-button" class="secondary-button" type="button">☆ Als Favorit speichern</button><div class="dialog-actions"><button id="delete-item-button" class="danger-button" type="button">Löschen</button><button class="primary-button">Speichern</button></div></form></dialog>
   <dialog id="favorites-dialog" class="dialog-card favorites-dialog">
-    <div class="dialog-header"><div><p class="eyebrow">Schnell hinzufügen</p><h2>Favoriten</h2></div><button id="close-favorites-button" class="icon-button" type="button" aria-label="Schließen">×</button></div>
+    <div class="dialog-header"><h2>Favoriten</h2><button id="close-favorites-button" class="icon-button" type="button" aria-label="Schließen">×</button></div>
     <input id="favorite-search" type="search" placeholder="Favoriten durchsuchen …" aria-label="Favoriten durchsuchen">
     <div id="favorite-selection-list" class="favorite-selection-list"></div>
     <p id="empty-favorites" class="overview-empty">Noch keine Favoriten gespeichert.</p>
@@ -42,6 +42,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast hidden" role="status"></div>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script type="module" src="js/app.js?v=31"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script type="module" src="js/app.js?v=32"></script>
 </body>
 </html>
