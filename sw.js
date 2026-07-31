@@ -1,14 +1,14 @@
-const CACHE_NAME = "family-flow-v30";
+const CACHE_NAME = "family-flow-v31";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./style.css",
-  "./favorites.css?v=30",
+  "./style.css?v=31",
+  "./favorites.css?v=31",
   "./manifest.webmanifest",
   "./js/config.js",
   "./js/supabase.js",
   "./js/store.js",
-  "./js/app.js?v=30",
+  "./js/app.js?v=31",
   "./js/shopping.js",
   "./js/favorites.js",
   "./js/ui.js",
